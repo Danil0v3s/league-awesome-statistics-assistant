@@ -1,0 +1,30 @@
+{
+  "name": "league-awesome-statistics-assistant",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daniloleemes/league-awesome-statistics-assistant.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/daniloleemes/league-awesome-statistics-assistant/issues"
+  },
+  "homepage": "https://github.com/daniloleemes/league-awesome-statistics-assistant#readme",
+  "dependencies": {
+    "axios": "^0.19.2",
+    "bluebird": "^3.7.2",
+    "dotenv-safe": "^6.0.0",
+    "mongodb": "^3.5.3"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.2"
+  }
+}
