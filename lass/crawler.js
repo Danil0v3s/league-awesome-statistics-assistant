@@ -40,7 +40,10 @@ const fetchSingleLeague = async (mongoClient, region, uri) => {
         try {
             const { data } = await axios.get(url, { params: { page, api_key: apiKey } })
             await timeout(50);
-            if (!data || data.length == 0) break
+            if (!data || data.length == 0) {
+                console.log(`FINISHING REGION: ${region}\tURI: ${uri}`)
+                break
+            }
             page++
 
             console.log(`REGION: ${region}\tPAGE: ${page}\tURI: ${uri}`)
