@@ -1,5 +1,5 @@
 const axios = require('axios')
-const { apiKey } = require('../config/vars')
+const { apiKey } = require('../../config/vars')
 const { REGIONS, ENDPOINTS, QUEUES } = require('./crawler.conts')
 const REGION_CONCURRENCY = 4
 const LEAGUE_CONCURRENCY = 1
