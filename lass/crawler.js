@@ -1,64 +1,65 @@
 const axios = require('axios')
 const { apiKey } = require('../config/vars')
-const { REGIONS, ENDPOINTS, DIVISIONS, TIERS, QUEUES } = require('./crawler.conts')
-const REGION_CONCURRENCY = 1
+const { REGIONS, ENDPOINTS, QUEUES } = require('./crawler.conts')
+const REGION_CONCURRENCY = 4
 const LEAGUE_CONCURRENCY = 1
 const QUEUE_CONCURRENCY = 1
 const DIVISION_CONCURRENCY = 20
-
-// const riotApi = axios.create({
-//     headers: {
-//         'X-Riot-Token': apiKey
-//     }
-// })
 
 function timeout(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function getKeyByValue(object, value) {
+    return Object.keys(object).find(key => object[key] === value);
+}
+
 exports.init = async (mongoClient) => {
-    await Promise.map(Object.keys(REGIONS), (region) => fetchLeagues(mongoClient, region), { concurrency: REGION_CONCURRENCY })
+    await Promise.map(Object.keys(REGIONS), async (region) => {
+        fetchMajorSoloLeagues(mongoClient, region)
+        await timeout(5000)
+    }, { concurrency: REGION_CONCURRENCY })
 }
 
-const fetchLeagues = async (mongoClient, region) => {
-    const uris = []
+const fetchMajorSoloLeagues = async (mongoClient, region) => {
     const collection = mongoClient.db('lass').collection('leagues');
-    Object.keys(QUEUES).forEach(queue => {
-        Object.keys(TIERS).forEach(tier => {
-            Object.keys(DIVISIONS).forEach(division => {
-                uris.push(`${QUEUES[queue]}/${tier}/${division}`)
-            })
-        })
-    })
 
-    await Promise.map(uris, (uri) => fetchSingleLeague(collection, region, uri), { concurrency: LEAGUE_CONCURRENCY })
+    const { CHALLENGER, GRANDMASTER, MASTER, DIAMOND } = QUEUES.SOLO.tiers
+
+    for (const league of [CHALLENGER, GRANDMASTER, MASTER, DIAMOND]) {
+        await Promise.map(league, (rank) => fetchSingleLeague(collection, region, QUEUES.SOLO.name, getKeyByValue(QUEUES.SOLO.tiers, league), rank), { concurrency: LEAGUE_CONCURRENCY })
+        console.log(`REGION: ${region}\tLEAGUE: ${getKeyByValue(QUEUES.SOLO.tiers, league)} FINISHED`)
+    }
 }
 
-const fetchSingleLeague = async (mongoCollection, region, uri) => {
+const fetchSingleLeague = async (mongoCollection, region, queueName, league, rank) => {
     let page = 1
     while (true) {
-        let url = `https://${region.toLowerCase()}.${ENDPOINTS.BASE}${ENDPOINTS.LEAGUES}${uri}`
+        let url = `https://${region.toLowerCase()}.${ENDPOINTS.BASE}${ENDPOINTS.LEAGUES}${queueName}/${league}/${rank}`
         try {
             const { data } = await axios.get(url, { params: { page, api_key: apiKey } })
-            await timeout(1200);
+            await timeout(3000);
             if (!data || data.length == 0) {
-                console.log(`FINISHING REGION: ${region}\tURI: ${uri}`)
                 break
             } else {
+                console.log(`REGION: ${region}\tLEAGUE: ${league}\tRANK: ${rank}\tPAGE: ${page}`)
                 page++
-                try {
-                    data.forEach(sm => sm.region = region)
-                    mongoCollection.insertMany(data)
-                } catch (e) {
-                    console.error(e)
-                }
+                saveLeagueData(mongoCollection, region, data)
             }
 
-            console.log(`REGION: ${region}\tPAGE: ${page}\tURI: ${uri}`)
         } catch (err) {
-            console.error(`REGION: ${region}\tPAGE: ${page}\tURI: ${uri}`)
-            console.error(err)
+            console.error(`REGION: ${region}\tLEAGUE: ${league}\tRANK: ${rank}\tPAGE: ${page}`)
+            console.error(err.response.statusText)
             break
         }
+    }
+}
+
+const saveLeagueData = (mongoCollection, region, data) => {
+    try {
+        data.forEach(sm => sm.region = region)
+        mongoCollection.insertMany(data)
+    } catch (e) {
+        console.error(e)
     }
 }
