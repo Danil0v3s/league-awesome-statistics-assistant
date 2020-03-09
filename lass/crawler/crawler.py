@@ -9,13 +9,13 @@ import os
 thread_local = threading.local()
 cls = lambda: os.system('cls')
 
-api_key = "RGAPI-b70320db-3cd0-4cf3-8baf-1e320dabef9b"
+api_key = "RGAPI-fc593f8e-19a2-4e13-a5b6-fdda82cb6954"
 base_url = "api.riotgames.com/lol"
 leagues_uri = "league-exp/v4/entries"
 summoners_uri = "summoner/v4/summoners"
 matchlist_uri = "match/v4/matchlists/by-account"
-regions = ['BR1', 'OC1', 'JP1', 'NA1',
-           'EUN1', 'EUW1', 'TR1', 'LA1', 'LA2', 'KR', 'RU']
+#regions = ['BR1', 'OC1', 'JP1', 'NA1', 'EUN1', 'EUW1', 'TR1', 'LA1', 'LA2', 'KR', 'RU']
+regions = ['BR1']
 tiers = {
     'CHALLENGER': ['I'],
     'GRANDMASTER': ['I'],
@@ -115,19 +115,29 @@ def fetch_matchlist(region):
             matchlist = response.json()
             db.matchlist.insert_one(matchlist)
 
-            while True:
-                if matchlist['endIndex'] < matchlist['totalGames']:
-                    begin_index = matchlist['endIndex']
-                    url = f"https://{region}.{base_url}/{matchlist_uri}/{summoner['accountId']}?api_key={api_key}&beginIndex={begin_index}"
-                    response = session.get(url)
-                    if response.status_code == 200:
-                        matchlist = response.json()
-                        db.matchlist.insert_one(matchlist)
-                        console[region] = f"{region} MATCHLIST {i}/{count} ({begin_index}/{matchlist['totalGames']}) FETCHED"
-                        print_console()
-                    time.sleep(2)
-                else:
-                    break
+            # while True:
+            #     if matchlist['endIndex'] < matchlist['totalGames']:
+            #         begin_index = matchlist['endIndex']
+            #         url = f"https://{region}.{base_url}/{matchlist_uri}/{summoner['accountId']}?api_key={api_key}&beginIndex={begin_index}"
+            #         response = session.get(url)
+            #         if response.status_code == 200:
+            #             matchlist = response.json()
+            #             db.matchlist.insert_one(matchlist)
+            #             console[region] = f"{region} MATCHLIST {i}/{count} ({begin_index}/{matchlist['totalGames']}) FETCHED"
+            #             print_console()
+            #         time.sleep(2)
+            #     else:
+            #         break
+
+            url = f"https://{region}.{base_url}/{matchlist_uri}/{summoner['accountId']}?api_key={api_key}"
+            response = session.get(url)
+            if response.status_code == 200:
+                matchlist = response.json()
+                matchlist['accountId'] = summoner['accountId']
+                db.matchlist.insert_one(matchlist)
+                console[region] = f"{region} MATCHLIST {i}/{count} ({begin_index}/{matchlist['totalGames']}) FETCHED"
+                print_console()
+            time.sleep(2)
 
             console[region] = f"{region} MATCHLIST {i}/{count} FETCHED"
             print_console()
@@ -153,8 +163,8 @@ def crawl_matchlists():
 
 if __name__ == "__main__":
     try:
-        #crawl_regions()
-        #crawl_summoners()
+        crawl_regions()
+        crawl_summoners()
         crawl_matchlists()
     except KeyboardInterrupt:
         sys.exit()
