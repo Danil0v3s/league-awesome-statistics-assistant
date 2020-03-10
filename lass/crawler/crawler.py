@@ -7,7 +7,7 @@ import sys
 import os
 
 thread_local = threading.local()
-cls = lambda: os.system('cls')
+cls = lambda: os.system('clear')
 
 api_key = "RGAPI-fc593f8e-19a2-4e13-a5b6-fdda82cb6954"
 base_url = "api.riotgames.com/lol"
