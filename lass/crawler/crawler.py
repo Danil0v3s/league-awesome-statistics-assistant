@@ -9,11 +9,12 @@ import os
 thread_local = threading.local()
 cls = lambda: os.system('clear')
 
-api_key = "RGAPI-fc593f8e-19a2-4e13-a5b6-fdda82cb6954"
+api_key = "RGAPI-f108d1e1-3b8f-435e-aae7-1a39ac412022"
 base_url = "api.riotgames.com/lol"
 leagues_uri = "league-exp/v4/entries"
 summoners_uri = "summoner/v4/summoners"
 matchlist_uri = "match/v4/matchlists/by-account"
+match_uri = "match/v4/matches"
 #regions = ['BR1', 'OC1', 'JP1', 'NA1', 'EUN1', 'EUW1', 'TR1', 'LA1', 'LA2', 'KR', 'RU']
 regions = ['BR1']
 tiers = {
@@ -153,11 +154,24 @@ def clean_matchlists():
     db.matches.insert_many(matches_filtered)
 
 
-def crawl_matches():
+def fetch_matches(region):
     session = get_session()
-    # for match in db.matches.find({}):
-        
+    count = db.matches.count_documents({'platformId': region})
+    cursor = db.matches.find({'platformId': region})
+    print(count)
+    for i in range(count):
+        match = cursor[i]
+        url = f"https://{region}.{base_url}/{match_uri}/{match['gameId']}?api_key={api_key}"
+        response = session.get(url)
 
+        if response.status_code == 200:
+            print(match['_id'])
+            db.matches.update_one({"_id": match['_id']}, { "$set": { **response.json() }})
+            console[region] = f"{region} {i}/{count} MATCHES FETCHED"
+            print_console()
+            time.sleep(2)
+
+        
 
 def crawl_regions():
     with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
@@ -173,11 +187,16 @@ def crawl_matchlists():
     with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
         executor.map(fetch_matchlist, regions)
 
+def crawl_matches():
+    with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
+        executor.map(fetch_matches, regions)
+
 if __name__ == "__main__":
     try:
         # crawl_regions()
         # crawl_summoners()
         # crawl_matchlists()
-        clean_matchlists()
+        # clean_matchlists()
+        crawl_matches()
     except KeyboardInterrupt:
         sys.exit()
