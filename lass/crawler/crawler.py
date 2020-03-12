@@ -65,6 +65,7 @@ def fetch_leagues(region):
             while True:
                 url = f"https://{region}.{base_url}/{leagues_uri}/RANKED_SOLO_5x5/{tier}/{rank}?page={page}&api_key={api_key}"
                 response = session.get(url).json()
+                time.sleep(2)
                 if len(response) == 0:
                     break
                 else:
@@ -74,9 +75,6 @@ def fetch_leagues(region):
                         entry['region'] = region
                     db.leagues.insert_many(response)
                     page += 1
-                time.sleep(2)
-            time.sleep(2)
-        time.sleep(2)
     console[region] = f"{region} FINISHED"
     print_console()
     fetch_summoners(region)
@@ -85,18 +83,21 @@ def fetch_leagues(region):
 def fetch_summoners(region):
     session = get_session()
     print(f"Fetching summoners from {region}")
-    for entry in db.leagues.find({'region': region}):
+    count = db.leagues.count_documents({'region': region})
+    cursor = db.leagues.find({'region': region})
+    for i in range(count):
+        entry = cursor[i]
         url = f"https://{region}.{base_url}/{summoners_uri}/{entry['summonerId']}?api_key={api_key}"
         response = session.get(url)
+        time.sleep(2)
         if response.status_code == 200:
             summoner = response.json()
             summoner['region'] = region
-            console[region] = f"{region} {summoner['name']} FETCHED"
+            console[region] = f"{region} {i}/{count} SUMMONERS FETCHED"
             print_console()
             db.summoners.insert_one(summoner)
         else:
             print(f"Error fetching summoner {entry['summonerId']} from {region} with {response.status_code}")
-        time.sleep(2)
     console[region] = f"{region} SUMMONERS FETCHED"
     print_console()
     fetch_matchlist(region)
@@ -128,7 +129,7 @@ def fetch_matchlist(region):
             #         time.sleep(2)
             #     else:
             #         break
-            console[region] = f"{region} MATCHLIST {i}/{count} FETCHED"
+            console[region] = f"{region} {i}/{count} MATCHLIST FETCHED"
             print_console()
         time.sleep(2)
     console[region] = f"{region} MATCHLISTS FETCHED"
@@ -183,9 +184,9 @@ def crawl_matches():
 
 if __name__ == "__main__":
     try:
-        #crawl_regions()
-        #crawl_summoners()
-        crawl_matchlists()
+        crawl_regions()
+        # crawl_summoners()
+        # crawl_matchlists()
         clean_matchlists()
         crawl_matches()
     except KeyboardInterrupt:
