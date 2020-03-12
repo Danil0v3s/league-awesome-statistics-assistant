@@ -146,6 +146,19 @@ def fetch_matchlist(region):
     print_console()
 
 
+def clean_matchlists():
+    matchlist = [match['matches'] for match in db.matchlist.find({})]
+    matches = [{"gameId":item['gameId'], "platformId": item['platformId']} for sublist in matchlist for item in sublist]
+    matches_filtered = [dict(y) for y in set(tuple(x.items()) for x in matches)]
+    db.matches.insert_many(matches_filtered)
+
+
+def crawl_matches():
+    session = get_session()
+    # for match in db.matches.find({}):
+        
+
+
 def crawl_regions():
     with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
         executor.map(fetch_leagues, regions)
@@ -160,11 +173,11 @@ def crawl_matchlists():
     with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
         executor.map(fetch_matchlist, regions)
 
-
 if __name__ == "__main__":
     try:
-        crawl_regions()
-        crawl_summoners()
-        crawl_matchlists()
+        # crawl_regions()
+        # crawl_summoners()
+        # crawl_matchlists()
+        clean_matchlists()
     except KeyboardInterrupt:
         sys.exit()
