@@ -16,7 +16,7 @@ summoners_uri = "summoner/v4/summoners"
 matchlist_uri = "match/v4/matchlists/by-account"
 match_uri = "match/v4/matches"
 #regions = ['BR1', 'OC1', 'JP1', 'NA1', 'EUN1', 'EUW1', 'TR1', 'LA1', 'LA2', 'KR', 'RU']
-regions = ['BR1']
+regions = ['BR1', 'EUW1']
 tiers = {
     'CHALLENGER': ['I'],
     'GRANDMASTER': ['I'],
@@ -109,13 +109,12 @@ def fetch_matchlist(region):
     for i in range(count):
         begin_index = 0
         summoner = cursor[i]
-        url = f"https://{region}.{base_url}/{matchlist_uri}/{summoner['accountId']}?api_key={api_key}&beginIndex={begin_index}"
+        url = f"https://{region}.{base_url}/{matchlist_uri}/{summoner['accountId']}?api_key={api_key}&beginIndex={begin_index}&queue=420"
         response = session.get(url)
         
         if response.status_code == 200:
-            matchlist = response.json()
+            matchlist = {**response.json(), "accountId": summoner['accountId']}
             db.matchlist.insert_one(matchlist)
-
             # while True:
             #     if matchlist['endIndex'] < matchlist['totalGames']:
             #         begin_index = matchlist['endIndex']
@@ -129,17 +128,6 @@ def fetch_matchlist(region):
             #         time.sleep(2)
             #     else:
             #         break
-
-            url = f"https://{region}.{base_url}/{matchlist_uri}/{summoner['accountId']}?api_key={api_key}"
-            response = session.get(url)
-            if response.status_code == 200:
-                matchlist = response.json()
-                matchlist['accountId'] = summoner['accountId']
-                db.matchlist.insert_one(matchlist)
-                console[region] = f"{region} MATCHLIST {i}/{count} ({begin_index}/{matchlist['totalGames']}) FETCHED"
-                print_console()
-            time.sleep(2)
-
             console[region] = f"{region} MATCHLIST {i}/{count} FETCHED"
             print_console()
         time.sleep(2)
@@ -187,16 +175,18 @@ def crawl_matchlists():
     with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
         executor.map(fetch_matchlist, regions)
 
+
 def crawl_matches():
     with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
         executor.map(fetch_matches, regions)
 
+
 if __name__ == "__main__":
     try:
-        # crawl_regions()
-        # crawl_summoners()
-        # crawl_matchlists()
-        # clean_matchlists()
+        #crawl_regions()
+        #crawl_summoners()
+        crawl_matchlists()
+        clean_matchlists()
         crawl_matches()
     except KeyboardInterrupt:
         sys.exit()
