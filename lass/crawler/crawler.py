@@ -9,7 +9,7 @@ import os
 thread_local = threading.local()
 cls = lambda: os.system('clear')
 
-api_key = "RGAPI-5f6e609e-c79c-4d1d-95ac-1472cd471b7a"
+api_key = "RGAPI-fc1a7e4c-03c1-4ecf-b429-04a6971de815"
 base_url = "api.riotgames.com/lol"
 leagues_uri = "league-exp/v4/entries"
 summoners_uri = "summoner/v4/summoners"
@@ -162,18 +162,71 @@ def fetch_remaining_matchlists(summoners):
     print_console()
     clean_matchlists(region)
 
-def clean_matchlists(region):
-    matchlist = [match['matches'] for match in db.matchlist.find({"platformId": region})]
-    matches = [{"gameId":item['gameId'], "platformId": item['platformId']} for sublist in matchlist for item in sublist]
-    matches_filtered = [dict(y) for y in set(tuple(x.items()) for x in matches)]
-    db.matches.insert_many(matches_filtered)
-    fetch_matches(region)
+def fetch_remaining_summoners(entries):
+    session = get_session()
+    count = len(entries)
+    region = entries[0]['region']
+    for i in range(count):
+        entry = entries[i]
+        url = f"https://{region}.{base_url}/{summoners_uri}/{entry['summonerId']}?api_key={api_key}"
+        response = session.get(url)
+        time.sleep(2)
+        if response.status_code == 200:
+            summoner = { **response.json(), "region": region }
+            db.summoners.insert_one(summoner)
+        console[region] = f"{region} {i}/{count} SUMMONERS FETCHED"
+        print_console()
+    console[region] = f"{region} SUMMONERS FETCHED"
+    print_console()
+
+
+def clean_matchlists():
+    for region in regions:
+        console[region] = f"{region} CLEANING MATCHLISTS"
+        print_console()
+        pipeline = [
+            {
+                '$lookup': {
+                    'from': 'summoners', 
+                    'localField': 'accountId', 
+                    'foreignField': 'accountId', 
+                    'as': 'summoner'
+                }
+            }, {
+                '$unwind': {
+                    'path': '$summoner'
+                }
+            }, {
+                '$project': {
+                    '_id': 1, 
+                    'matches': 1, 
+                    'accountId': 1, 
+                    'region': '$summoner.region'
+                }
+            }, {
+                '$match': {
+                    'region': region
+                }
+            }
+        ]
+        matchlist = [match['matches'] for match in db.matchlist.aggregate(pipeline)]
+        matches = [{"gameId":item['gameId'], "platformId": item['platformId']} for sublist in matchlist for item in sublist]
+        matches_filtered = [dict(y) for y in set(tuple(x.items()) for x in matches)]
+        console[region] = f"{region} {len(matches_filtered)} MATCHES WILL BE INSERTED"
+        print_console()
+        for match in matches_filtered:
+            try:
+                db.matches.insert_one(match)
+            except:
+                print(f"{match} NOT INSERTED")
 
 
 def fetch_matches(region):
+    console[region] = f"{region} FETCHING MATCHES"
+    print_console()
     session = get_session()
-    count = db.matches.count_documents({'platformId': region})
-    cursor = db.matches.find({'platformId': region})
+    count = db.matches.count_documents({'platformId': region, 'seasonId': { "$exists": False }})
+    cursor = db.matches.find({'platformId': region, 'seasonId': { "$exists": False }})
     for i in range(count):
         match = cursor[i]
         url = f"https://{region}.{base_url}/{match_uri}/{match['gameId']}?api_key={api_key}"
@@ -182,9 +235,9 @@ def fetch_matches(region):
         if response.status_code == 200:
             print(match['_id'])
             db.matches.update_one({"_id": match['_id']}, { "$set": { **response.json() }})
-            console[region] = f"{region} {i}/{count} MATCHES FETCHED"
-            print_console()
-            time.sleep(2)
+        console[region] = f"{region} {i}/{count} MATCHES FETCHED"
+        print_console()
+        time.sleep(2)
         
 
 def crawl_regions():
@@ -205,6 +258,7 @@ def crawl_matchlists():
 def crawl_matches():
     with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
         executor.map(fetch_matches, regions)
+
 
 def crawl_remaining_matchlists():
     summoners = []
@@ -230,13 +284,39 @@ def crawl_remaining_matchlists():
     with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
         executor.map(fetch_remaining_matchlists, summoners)
 
+def crawl_remaining_summoners():
+    summoners = []
+    for region in regions:
+        pipeline = [
+            {
+                '$lookup': {
+                    'from': 'summoners', 
+                    'localField': 'summonerId', 
+                    'foreignField': 'id', 
+                    'as': 'remaining'
+                }
+            }, {
+                '$match': {
+                    'remaining': {
+                        '$eq': []
+                    },
+                    'region': region
+                }
+            }
+        ]
+        summoners.append(list(db.leagues.aggregate(pipeline)))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
+        executor.map(fetch_remaining_matchlists, summoners)
+
+
 if __name__ == "__main__":
     try:
         # crawl_regions()
         # crawl_summoners()
         # crawl_matchlists()
-        crawl_remaining_matchlists()
         # clean_matchlists()
-        # crawl_matches()
+        crawl_matches()
+        # crawl_remaining_summoners()
+        # crawl_remaining_matchlists()
     except KeyboardInterrupt:
         sys.exit()
