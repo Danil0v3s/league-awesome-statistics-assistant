@@ -29,19 +29,7 @@ tiers = {
     # 'IRON': ['I', 'II', 'III', 'IV']
 }
 
-console = {
-    'RU': 'RU1',
-    'KR': 'KR',
-    'BR1': 'BR1',
-    'OC1': 'OC1',
-    'JP1': 'JP1',
-    'NA1': 'NA1',
-    'EUN1': 'EUN1',
-    'EUW1': 'EUW1',
-    'TR1': 'TR1',
-    'LA1': 'LA1',
-    'LA2': 'LA2'
-}
+console = {}
 
 client = MongoClient('mongodb://localhost:27017/lass')
 db = client.lass
@@ -55,7 +43,6 @@ def get_session():
     if not hasattr(thread_local, "session"):
         thread_local.session = requests.Session()
     return thread_local.session
-
 
 def fetch_leagues(region):
     session = get_session()
@@ -79,7 +66,6 @@ def fetch_leagues(region):
     print_console()
     fetch_summoners(region)
 
-
 def fetch_summoners(region):
     session = get_session()
     print(f"Fetching summoners from {region}")
@@ -101,7 +87,6 @@ def fetch_summoners(region):
     console[region] = f"{region} SUMMONERS FETCHED"
     print_console()
     fetch_matchlist(region)
-
 
 def fetch_matchlist(region):
     session = get_session()
@@ -139,7 +124,6 @@ def fetch_matchlist(region):
     print_console()
     clean_matchlists(region)
 
-
 def fetch_remaining_matchlists(summoners):
     session = get_session()
     region = ''
@@ -154,10 +138,10 @@ def fetch_remaining_matchlists(summoners):
         if response.status_code == 200:
             matchlist = {**response.json(), "accountId": summoner['accountId']}
             db.matchlist.insert_one(matchlist)
-            console[region] = f"{region} {i}/{count} MATCHLIST FETCHED"
-            print_console()
         else:
             print("Could not execute request")
+        console[region] = f"{region} {i}/{count} MATCHLIST FETCHED"
+        print_console()
         time.sleep(1)
     console[region] = f"{region} MATCHLISTS FETCHED"
     print_console()
@@ -179,7 +163,6 @@ def fetch_remaining_summoners(entries):
         print_console()
     console[region] = f"{region} SUMMONERS FETCHED"
     print_console()
-
 
 def clean_matchlists():
     for region in regions:
@@ -221,7 +204,6 @@ def clean_matchlists():
             except:
                 print(f"{match} NOT INSERTED")
 
-
 def fetch_matches(region):
     console[region] = f"{region} FETCHING MATCHES"
     print_console()
@@ -230,15 +212,18 @@ def fetch_matches(region):
     cursor = db.matches.find({'platformId': region, 'seasonId': { "$exists": False }})
     for i in range(count):
         match = cursor[i]
-        url = f"https://{region}.{base_url}/{match_uri}/{match['gameId']}?api_key={api_key}"
+        key = api_key[i % len(api_key)]
+        url = f"https://{region}.{base_url}/{match_uri}/{match['gameId']}?api_key={key}"
         response = session.get(url)
 
         if response.status_code == 200:
-            print(match['_id'])
             db.matches.update_one({"_id": match['_id']}, { "$set": { **response.json() }})
-        console[region] = f"{region} {i}/{count} MATCHES FETCHED"
-        print_console()
-        time.sleep(2)
+            console[region] = f"{region} {i}/{count} MATCHES FETCHED [{key}]"
+            print_console()
+        else: 
+            console[region] = f"{region} {i}/{count} MATCHES FETCHED [ERROR]"
+            print_console()
+            time.sleep(10)
         
 
 def crawl_regions():
