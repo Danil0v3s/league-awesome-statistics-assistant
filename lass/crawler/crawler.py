@@ -9,7 +9,7 @@ import os
 thread_local = threading.local()
 cls = lambda: os.system('clear')
 
-api_key = "RGAPI-fc1a7e4c-03c1-4ecf-b429-04a6971de815"
+api_key = ["RGAPI-885b0b9e-78c0-4383-82de-c03eec913f43", "RGAPI-da75265c-a919-4f4d-87d5-4c8dd1a9489f"]
 base_url = "api.riotgames.com/lol"
 leagues_uri = "league-exp/v4/entries"
 summoners_uri = "summoner/v4/summoners"
@@ -148,16 +148,17 @@ def fetch_remaining_matchlists(summoners):
         summoner = summoners[i]
         begin_index = 0
         region = summoner['region']
-        url = f"https://{region}.{base_url}/{matchlist_uri}/{summoner['accountId']}?api_key={api_key}&beginIndex={begin_index}&queue=420"
+        url = f"https://{region}.{base_url}/{matchlist_uri}/{summoner['accountId']}?api_key={api_key[i % len(api_key)]}&beginIndex={begin_index}&queue=420"
         response = session.get(url)
 
         if response.status_code == 200:
             matchlist = {**response.json(), "accountId": summoner['accountId']}
             db.matchlist.insert_one(matchlist)
-
-        console[region] = f"{region} {i}/{count} MATCHLIST FETCHED"
-        print_console()
-        time.sleep(2)
+            console[region] = f"{region} {i}/{count} MATCHLIST FETCHED"
+            print_console()
+        else:
+            print("Could not execute request")
+        time.sleep(1)
     console[region] = f"{region} MATCHLISTS FETCHED"
     print_console()
     clean_matchlists(region)
