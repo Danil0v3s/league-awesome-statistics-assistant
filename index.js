@@ -1,13 +1,19 @@
 Promise = require('bluebird');
-const { mongo } = require('./config/vars')
+const { mongo, port } = require('./config/vars')
 const MongoClient = require('mongodb').MongoClient;
+const express = require('express');
+const app = express();
+
+const { fetchCounters } = require('./lass/api/champion/counters.controller');
 
 MongoClient.connect(mongo.uri, function (err, client) {
     if (err) throw err;
 
-    // client.db('lass').collection('leagues').deleteMany({}, function (err, obj) {
-    //     if (err) throw err;
-    //     console.log(obj.result.n + " document(s) deleted");
-    //     client.close();
-    // })
+    const lass = client.db('lass');
+    app.locals.lass = lass;
+
+    app.get('/:championId/counters', fetchCounters);
+
+
+    app.listen(port, () => console.info(`LASS started on ${port}`))
 });
